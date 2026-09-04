@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HackVault</title>
+    <meta name="description" content="Open-source problem statement explorer for hackathons." />
+    <link rel="canonical" href="/" />
+    <meta name="theme-color" content="#194fd1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="HackVault" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:title" content="HackVault" />
+    <meta property="og:description" content="Open-source problem statement explorer for hackathons." />
+    <meta property="og:image" content="/assets/screenshots/hero.png" />
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="900" />
+    <meta property="og:image:alt" content="HackVault problem explorer" />
+    <meta property="og:url" content="/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="HackVault" />
+    <meta name="twitter:description" content="Open-source problem statement explorer for hackathons." />
+    <meta name="twitter:image" content="/assets/screenshots/hero.png" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/assets/logo.jpg" type="image/jpeg" sizes="180x180" />
+    <link rel="apple-touch-icon" href="/assets/logo.jpg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "HackVault",
+        "url": "/",
+        "description": "Open-source problem statement explorer for hackathons."
+      }
+    </script>
+    <script src="/theme-init.js"></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <section class="access-gate access-gate-loading" id="boot-screen" aria-labelledby="boot-title">
+      <div class="gate-panel">
+        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
+        <p class="eyebrow">HackVault Framework</p>
+        <h2 id="boot-title">Hackathon problem<br />statements, organized.</h2>
+        <p>Loading the catalog and the review workspace.</p>
+      </div>
+    </section>
+
+    <dialog class="auth-dialog" id="access-gate" aria-labelledby="access-title">
+      <div class="auth-card">
+        <button class="text-button auth-back" id="auth-back" type="button">&larr; Back to the catalog</button>
+        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
+        <p class="eyebrow">HackVault</p>
+        <h2 id="access-title">Keep track of<br />your shortlist.</h2>
+        <p class="auth-lede">Browsing the public catalog needs no account. Sign in only for private notes, team votes, shared comments, and saved review state.</p>
+        <ul class="auth-perks">
+          <li>Mark problems to read, keep, accept or reject</li>
+          <li>Write a private note on any problem statement</li>
+          <li>Vote and compare notes with up to six teammates</li>
+        </ul>
+
+        <div class="segmented team-switch" id="auth-mode" role="group" aria-label="Authentication mode">
+          <button class="active" type="button" data-mode="login">Log in</button>
+          <button type="button" data-mode="signup">Sign up</button>
+        </div>
+        <form class="auth-form" id="auth-form">
+          <label><span>Email</span><input id="auth-email" type="email" required autocomplete="email" /></label>
+          <label><span>Password</span><input id="auth-password" type="password" required minlength="8" maxlength="72" autocomplete="current-password" /></label>
+          <p class="gate-status" id="gate-status" role="status"></p>
+          <button class="primary-button" id="auth-submit" type="submit">Log in</button>
+        </form>
+      </div>
+    </dialog>
+
+    <header class="navbar" id="navbar" hidden>
+      <a class="brand" href="/" aria-label="HackVault home">
+        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
+        <span><strong>HackVault</strong><small>Framework</small></span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary">
+        <a href="/hackathons" data-nav-link="hackathons">Hackathons</a>
+        <a href="/hackathons" data-nav-link="explore">Explore</a>
+        <button class="text-button nav-inline" id="nav-shortlist" type="button">Shortlist</button>
+        <button class="text-button nav-inline" id="nav-board" type="button">Review Board</button>
+      </nav>
+
+      <div class="nav-search" role="search">
+        <label class="search-input-wrap">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="search" type="search" aria-label="Search problem statements" placeholder="Search hackathons, editions, titles, organizations, themes, tags..." autocomplete="off" />
+          <kbd>/</kbd>
+        </label>
+        <button class="filter-button" id="filter-button" type="button" aria-controls="filters" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></svg>
+          <span>Filters</span><span class="filter-badge" id="filter-badge" hidden>0</span>
+        </button>
+      </div>
+
+      <div class="nav-actions">
+        <button class="nav-account" id="join-group-button" type="button">Sign in</button>
+        <button class="text-button" id="logout-button" type="button" hidden>Log out</button>
+        <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark theme" title="Toggle dark theme">
+          <svg class="sun" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"></path></svg>
+          <svg class="moon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section id="ssr-content" hidden></section>
+
+      <div id="spa-root" hidden>
+        <nav class="breadcrumbs" id="breadcrumbs" hidden aria-label="Breadcrumb"></nav>
+
+        <section class="home-view" id="home-view" hidden>
+          <section class="hero-panel">
+            <p class="eyebrow">HackVault</p>
+            <h1>Browse and shortlist problem statements from hackathons</h1>
+            <p class="hero-copy">Markdown remains the source of truth. The browser and review tools sit on top.</p>
+            <div class="hero-stats" id="hero-stats"></div>
+          </section>
+
+          <section class="home-section" aria-labelledby="home-hackathons-title">
+            <div class="section-head">
+              <h2 id="home-hackathons-title">Hackathons</h2>
+              <p id="home-summary"></p>
+            </div>
+            <div class="catalog-grid" id="hackathon-grid"></div>
+          </section>
+        </section>
+
+        <section class="hackathon-view" id="hackathon-view" hidden>
+          <section class="page-head" aria-labelledby="hackathon-title">
+            <h1 id="hackathon-title">Hackathon</h1>
+            <p id="hackathon-description"></p>
+          </section>
+          <section class="home-section" aria-labelledby="edition-title">
+            <div class="section-head">
+              <h2 id="edition-title">Editions</h2>
+              <p id="hackathon-meta"></p>
+            </div>
+            <div class="catalog-grid" id="edition-grid"></div>
+          </section>
+        </section>
+
+        <div id="list-view" hidden>
+          <section class="page-head" aria-labelledby="page-title">
+            <h1 id="page-title">Catalog explorer</h1>
+            <p id="page-subtitle"></p>
+          </section>
+
+          <section class="workspace" aria-label="Problem statement explorer">
+            <aside class="filters" id="filters">
+              <div class="filter-heading">
+                <h2>Filters</h2>
+                <div class="filter-heading-actions">
+                  <button class="text-button" id="clear-filters" type="button">Clear all</button>
+                  <button class="icon-button filter-close" id="filter-close" type="button" aria-label="Close filters" title="Close">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"></path></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="filter-block">
+                <span class="filter-label">Quick picks</span>
+                <div class="quick-picks" id="quick-picks">
+                  <button type="button" data-quick="dataset">Has dataset</button>
+                  <button type="button" data-quick="starred">Starred</button>
+                  <button type="button" data-quick="hide-rejected">Hide rejected</button>
+                </div>
+              </div>
+
+              <label class="filter-block" id="hackathon-filter-wrap">
+                <span class="filter-label">Hackathon</span>
+                <select id="hackathon-filter"><option value="">All hackathons</option></select>
+              </label>
+
+              <label class="filter-block" id="edition-filter-wrap">
+                <span class="filter-label">Edition</span>
+                <select id="edition-filter"><option value="">All editions</option></select>
+              </label>
+
+              <label class="filter-block" id="organization-filter-wrap">
+                <span class="filter-label">Organization</span>
+                <select id="organization-filter"><option value="">All organizations</option></select>
+              </label>
+
+              <label class="filter-block" id="department-filter-wrap">
+                <span class="filter-label">Department</span>
+                <select id="department-filter"><option value="">All departments</option></select>
+              </label>
+
+              <label class="filter-block" id="category-filter-wrap">
+                <span class="filter-label">Category</span>
+                <select id="category-filter"><option value="">All categories</option></select>
+              </label>
+
+              <label class="filter-block" id="theme-filter-wrap">
+                <span class="filter-label">Theme</span>
+                <select id="theme-filter"><option value="">All themes</option></select>
+              </label>
+
+              <label class="filter-block" id="tag-filter-wrap">
+                <span class="filter-label">Tag</span>
+                <select id="tag-filter"><option value="">All tags</option></select>
+              </label>
+
+              <div class="filter-row">
+                <label class="filter-block">
+                  <span class="filter-label">Your review</span>
+                  <select id="individual-review">
+                    <option value="">Any</option>
+                    <option value="to-read">To read</option>
+                    <option value="read">Read</option>
+                    <option value="keep">Keep</option>
+                    <option value="accept">Accept</option>
+                    <option value="reject">Reject</option>
+                  </select>
+                </label>
+                <label class="filter-block">
+                  <span class="filter-label">Your team vote</span>
+                  <select id="team-vote">
+                    <option value="">Any</option>
+                    <option value="yes">Yes</option>
+                    <option value="maybe">Maybe</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+            </aside>
+
+            <div class="results-panel">
+              <div class="results-toolbar">
+                <p><strong id="result-count">—</strong> matches <span id="active-summary"></span></p>
+                <div class="toolbar-actions">
+                  <button class="text-button" id="open-compare" type="button" hidden>Compare selected (<span id="compare-count">0</span>)</button>
+                  <button class="text-button" id="export-board" type="button">Export board</button>
+                </div>
+              </div>
+
+              <div class="review-summary" id="review-summary"></div>
+              <div class="active-filters" id="active-filters" aria-label="Active filters"></div>
+              <div class="review-board" id="review-board"></div>
+              <div class="problem-list" id="problem-list" aria-live="polite"></div>
+              <button class="load-more" id="load-more" type="button" hidden>Load 12 more</button>
+              <div class="empty-state" id="empty-state" hidden>
+                <span>0</span><h2>No problem statements match.</h2><p>Remove a filter or try a broader search term.</p>
+                <button type="button" id="empty-clear">Clear filters</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <article class="detail-view" id="detail-view" hidden aria-labelledby="detail-title">
+          <div class="detail-bar">
+            <button class="text-button" id="detail-back" type="button">← Back to catalog</button>
+            <div class="detail-nav">
+              <button class="icon-button" id="detail-prev" type="button" aria-label="Previous problem" title="Previous (←)">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"></path></svg>
+              </button>
+              <span id="detail-number"></span>
+              <button class="icon-button" id="detail-next" type="button" aria-label="Next problem" title="Next (→)">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"></path></svg>
+              </button>
+              <label class="detail-scope" title="Walk through only these problems with ← / →">
+                <span>Browsing</span>
+                <select id="detail-scope">
+                  <option value="all">All loaded</option>
+                  <option value="to-read">To read</option>
+                  <option value="keep">Keep</option>
+                  <option value="accept">Accept</option>
+                  <option value="starred">Starred</option>
+                </select>
+              </label>
+            </div>
+            <div class="detail-tools">
+              <button class="text-button" id="copy-md" type="button">Copy MD</button>
+              <button class="icon-button" id="detail-star" type="button" aria-label="Star this problem statement" title="Star problem statement">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg>
+              </button>
+            </div>
+          </div>
+          <div class="detail-body" id="detail-body"></div>
+        </article>
+      </div>
+    </main>
+
+    <dialog id="group-dialog" aria-labelledby="group-dialog-title">
+      <div class="group-form">
+        <button class="icon-button dialog-form-close" id="group-dialog-close" type="button" aria-label="Close team dialog" title="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"></path></svg></button>
+        <p class="eyebrow">Shared shortlist</p><h2 id="group-dialog-title">Team up.</h2>
+        <p>Create a team and share its name and password with your teammates, or join a team that already exists. A team holds up to 6 members including the lead.</p>
+
+        <div class="team-panel" id="team-panel" hidden>
+          <div class="team-panel-head">
+            <strong id="team-panel-name"></strong>
+            <span class="team-count" id="team-panel-count"></span>
+          </div>
+          <ul class="team-roster" id="team-roster"></ul>
+          <p class="team-full-note" id="team-full-note" hidden>Team is full — maximum 6 members allowed.</p>
+          <button class="text-button" id="team-leave" type="button">Leave this team</button>
+        </div>
+
+        <div class="segmented team-switch" id="team-mode" role="group" aria-label="Team action">
+          <button class="active" type="button" data-mode="create">Create team</button>
+          <button type="button" data-mode="join">Join team</button>
+        </div>
+        <p class="gate-status" id="team-status" role="status"></p>
+        <form id="team-create-form">
+          <label><span>Team name</span><input id="create-team-name" required minlength="3" maxlength="40" autocomplete="off" /></label>
+          <label><span>Team password</span><input id="create-team-password" type="password" required minlength="6" maxlength="72" autocomplete="new-password" /></label>
+          <label><span>Team lead name</span><input id="create-leader-name" required minlength="2" maxlength="40" autocomplete="name" /></label>
+          <button class="primary-button" type="submit">Create team</button>
+        </form>
+        <form id="team-join-form" hidden>
+          <label><span>Team name</span><input id="join-team-name" required minlength="3" maxlength="40" autocomplete="off" /></label>
+          <label><span>Team password</span><input id="join-team-password" type="password" required minlength="6" maxlength="72" autocomplete="current-password" /></label>
+          <label><span>Your name</span><input id="join-member-name" required minlength="2" maxlength="40" autocomplete="name" /></label>
+          <button class="primary-button" type="submit">Join team</button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="compare-dialog" aria-labelledby="compare-dialog-title">
+      <div class="group-form compare-form">
+        <button class="icon-button dialog-form-close" id="compare-dialog-close" type="button" aria-label="Close compare dialog" title="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"></path></svg></button>
+        <p class="eyebrow">Problem comparison</p><h2 id="compare-dialog-title">Compare problem statements.</h2>
+        <p>Review shortlisted problem statements side by side before the team decides.</p>
+        <div id="compare-content"><p>Pick 2 to 4 problem statements to compare.</p></div>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div class="mobile-filter-backdrop" id="filter-backdrop" hidden></div>
+  </body>
+</html>

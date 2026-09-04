@@ -1,0 +1,59 @@
+# The archive's data — YEAR/SIHxxxxx.md — is committed. So is the app that serves
+# it. Everything below is generated, secret, or belongs to a source repository.
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# The app's private dataset: never committed, never deployed.
+ps.json
+
+# Source repositories / raw inputs used to build the archive
+.sources/
+sources/
+.raw/
+raw/
+downloads/
+
+# Generated + intermediate archive data
+work/
+reports/
+*.csv
+*.xlsx
+*.xls
+*.pdf
+*.zip
+
+# Local archive-building tooling. The app's own scripts live in scripts/ and are
+# committed, so ad-hoc data tooling goes here to stay out of the way.
+tools/
+
+# Node
+node_modules/
+.vercel/
+
+# Processing / caches
+.temp/
+tmp/
+.cache/
+cache/
+.gstack/
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

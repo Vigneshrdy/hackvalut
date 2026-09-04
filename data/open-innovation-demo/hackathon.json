@@ -1,0 +1,11 @@
+{
+  "id": "open-innovation-demo",
+  "name": "Open Innovation Demo Hackathon",
+  "shortName": "OIDH",
+  "description": "Synthetic demo catalog used to prove HackVault's multi-hackathon architecture.",
+  "website": "https://example.com/open-innovation-demo",
+  "logo": null,
+  "license": "Demo content created for this repository.",
+  "attribution": "Synthetic example problems written for HackVault Framework.",
+  "source_url": "https://example.com/open-innovation-demo"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "smart-india-hackathon",
+  "name": "Smart India Hackathon",
+  "shortName": "SIH",
+  "description": "Archived Smart India Hackathon problem statements.",
+  "website": "https://www.sih.gov.in/",
+  "logo": null,
+  "license": "See ATTRIBUTION.md for source-specific licensing.",
+  "attribution": "Problem statement text remains attributed to the original publishers and Smart India Hackathon / AICTE.",
+  "source_url": "https://www.sih.gov.in/"
+}

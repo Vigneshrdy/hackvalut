@@ -1,0 +1,23 @@
+{
+  "name": "HackVault",
+  "short_name": "HackVault",
+  "description": "Open-source problem statement explorer for hackathons.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7f7",
+  "theme_color": "#194fd1",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "180x180"
+    }
+  ]
+}

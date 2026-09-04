@@ -1,0 +1,19 @@
+{
+  "name": "hackvault-framework",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=.env scripts/dev.js",
+    "start": "node --env-file=.env scripts/dev.js",
+    "check": "node scripts/test-statements.js && node scripts/test-team.js && node scripts/checks/guards.mjs",
+    "check:e2e": "node --env-file=.env scripts/checks/e2e-flow.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "jose": "^6.0.13",
+    "pg": "^8.16.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
