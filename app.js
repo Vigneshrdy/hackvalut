@@ -1,3 +1,4 @@
+import { collectionPath, collections, facets, editionTitle } from "/catalog-urls.js";
 const STORAGE = {
   compare: "hackvault:compare:v1",
   starred: "hackvault:starred:v1",
@@ -9,6 +10,7 @@ const STORAGE = {
 const state = {
   problems: [],
   visibleProblems: [],
+  matchedProblems: [],
   allHackathons: [],
   page: 1,
   hasMore: false,
@@ -43,6 +45,7 @@ const READING_STATES = { "to-read": "To read", read: "Read" };
 const DECISION_STATES = { keep: "Keep", accept: "Accept", reject: "Reject" };
 const VOTE_STATES = { yes: "Yes", maybe: "Maybe", no: "No" };
 const DEFAULT_TITLE = "HackVault";
+const HOME_TITLE = "Hackathon Problem Statements — Search & Shortlist | HackVault";
 const $ = (selector) => document.querySelector(selector);
 
 let datasetRequest;
@@ -69,18 +72,36 @@ function persistSet(key, value) {
 }
 
 function setDocumentTitle(title = "") {
-  document.title = title ? `${title} | ${DEFAULT_TITLE}` : DEFAULT_TITLE;
+  document.title = title ? `${title} | ${DEFAULT_TITLE}` : HOME_TITLE;
+  const problem = state.currentProblem;
+  const canonicalPath = state.route.name === "detail" && problem ? problemHref(problem) : location.pathname;
+  const url = new URL(canonicalPath, location.origin).href;
+  const description = problem && state.route.name === "detail"
+    ? `${problem.id} · ${problem.organization || problem.hackathon.name}. ${problem.summary}`.slice(0, 165)
+    : `${title || "Search hackathon problem statements"}. Browse archived briefs by PS number, theme and organization. Compare and shortlist ideas.`;
+  $('link[rel="canonical"]').href = url;
+  for (const key of ["description", "og:description", "twitter:description"]) document.querySelector(`meta[name="${key}"],meta[property="${key}"]`)?.setAttribute("content", description);
+  for (const key of ["og:title", "twitter:title"]) document.querySelector(`meta[name="${key}"],meta[property="${key}"]`)?.setAttribute("content", document.title);
+  $('meta[property="og:url"]').content = url;
+  const filtered = Boolean(state.filters.search || state.filters.quick || state.filters.individualReview || state.filters.teamVote);
+  $('meta[name="robots"]').content = filtered ? "noindex, follow" : "index, follow";
+  const graph = [{ "@type": state.route.name === "detail" ? "WebPage" : "CollectionPage", name: title || "Hackathon problem statements", url, description }];
+  if (canonicalPath === "/") graph.push({"@type":"WebSite", name:"HackVault",url});
+  if (problem && state.route.name === "detail") graph[0].about = {"@type":"CreativeWork",name:problem.title,identifier:problem.external_id || problem.id};
+  $('script[type="application/ld+json"]').textContent = JSON.stringify({"@context":"https://schema.org","@graph":graph});
 }
 
 function setVisible(viewId) {
+  document.documentElement.classList.remove("js-loading");
   $("#ssr-content").hidden = true;
   $("#spa-root").hidden = false;
   ["#home-view", "#hackathon-view", "#list-view", "#detail-view"].forEach((selector) => { $(selector).hidden = selector !== viewId; });
 }
 
 function activeFilterEntries() {
+  const scope = ["edition", "detail"].includes(state.route.name) ? ["hackathon", "edition", ...(state.route.kind ? [facets[state.route.kind]] : [])] : [];
   return Object.entries(state.filters)
-    .filter(([, value]) => value)
+    .filter(([key, value]) => value && !scope.includes(key))
     .map(([key, value]) => [key, `${key[0].toUpperCase()}${key.slice(1)}: ${value}`]);
 }
 
@@ -102,7 +123,7 @@ function reviewState(key) {
 }
 
 function currentPath() {
-  const path = decodeURIComponent(location.pathname).replace(/\/$/, "") || "/";
+  const path = location.pathname.replace(/\/$/, "") || "/";
   if (path === "/problem-statements") return "/hackathons/smart-india-hackathon/2026";
   if (path.startsWith("/problem-statements/")) return `/hackathons/smart-india-hackathon/2026/problems/${encodeURIComponent(path.slice("/problem-statements/".length))}`;
   return path;
@@ -111,6 +132,8 @@ function currentPath() {
 function parseRoute() {
   const path = currentPath();
   const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  if (parts[0] === "browse") return {name: "search", hackathonId: "", editionId: "", problemId: ""};
+  if (parts.length === 5 && facets[parts[3]]) return {name:"edition",hackathonId:parts[1],editionId:parts[2],problemId:"",kind:parts[3],value:parts[4]};
   if (!parts.length || (parts.length === 1 && parts[0] === "hackathons")) return { name: state.filters.search ? "search" : "home", hackathonId: "", editionId: "", problemId: "" };
   if (parts[0] !== "hackathons") return { name: "home", hackathonId: "", editionId: "", problemId: "" };
   if (parts.length === 2) return { name: "hackathon", hackathonId: parts[1], editionId: "", problemId: "" };
@@ -133,11 +156,11 @@ function hackathonHref(hackathonId) {
 
 function syncUrl() {
   const path = state.route.name === "home" || state.route.name === "search"
-    ? "/"
+    ? (state.route.name === "search" ? "/browse" : (location.pathname === "/hackathons" ? "/hackathons" : "/"))
     : state.route.name === "hackathon"
       ? hackathonHref(state.route.hackathonId)
       : state.route.name === "edition"
-        ? editionHref(state.route.hackathonId, state.route.editionId)
+        ? (state.route.kind ? collectionPath(state.route.hackathonId, state.route.editionId, state.route.kind, state.route.value) : editionHref(state.route.hackathonId, state.route.editionId))
         : problemHref(state.currentProblem);
   const params = new URLSearchParams();
   if (state.filters.search) params.set("q", state.filters.search);
@@ -269,7 +292,7 @@ async function loadDataset() {
       dataset.rows = result.items || [];
       dataset.hackathons = result.hackathons || [];
       dataset.byKey = new Map(dataset.rows.map((row) => [row.key, row]));
-      state.allHackathons = dataset.hackathons;
+      state.allHackathons = [...dataset.hackathons].sort((a,b)=>(b.stats?.problems || 0)-(a.stats?.problems || 0));
       state.problems = dataset.rows;
       return dataset.rows;
     })
@@ -392,18 +415,18 @@ function cardTemplate(problem) {
   const starred = state.starred.has(problem.key);
   const inCompare = state.compare.has(problem.key);
   const context = `${problem.hackathon.short_name || problem.hackathon.name} · ${problem.edition.name}`;
-  return `<article class="problem-card" data-open="${escapeHtml(problem.key)}" tabindex="0" role="link" aria-label="Open ${escapeHtml(problem.id)}">
+  return `<article class="problem-card" data-open="${escapeHtml(problem.key)}">
     <div><span class="ps-id">${escapeHtml(problem.id)}</span>${problem.category ? `<span class="ps-category">${escapeHtml(problem.category)}</span>` : ""}</div>
     <div class="card-main">
       <p class="card-context">${escapeHtml(context)}</p>
-      <h2>${escapeHtml(problem.title)}</h2>
+      <h2><a href="${problemHref(problem)}">${escapeHtml(problem.title)}</a></h2>
       <p class="card-org">${escapeHtml([problem.organization, problem.theme].filter(Boolean).join(" · "))}</p>
       ${reviewBadges(problem.key) ? `<div class="card-statuses">${reviewBadges(problem.key)}</div>` : ""}
       <p class="card-summary">${escapeHtml(problem.summary)}</p>
       <span class="card-more">Read full statement →</span>
     </div>
-    <div class="card-facts"><button class="text-button" type="button" data-compare="${escapeHtml(problem.key)}">${inCompare ? "Remove compare" : "Compare"}</button></div>
-    <button class="icon-button ${starred ? "starred" : ""}" type="button" data-star="${escapeHtml(problem.key)}" aria-label="${starred ? "Remove star from" : "Star"} ${escapeHtml(problem.id)}" title="${starred ? "Remove from shortlist" : "Add to shortlist"}">
+    <div class="card-facts">${problem.has_dataset ? '<span class="detail-tag">Dataset</span>' : ""}<button class="text-button" type="button" data-compare="${escapeHtml(problem.key)}">${inCompare ? "Remove compare" : "Compare"}</button></div>
+    <button class="icon-button ${starred ? "starred" : ""}" type="button" data-star="${escapeHtml(problem.key)}" aria-pressed="${starred}" aria-label="${starred ? "Remove star from" : "Star"} ${escapeHtml(problem.id)}" title="${starred ? "Remove from shortlist" : "Add to shortlist"}">
       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg>
     </button>
   </article>`;
@@ -430,7 +453,7 @@ function renderFilterState() {
 }
 
 function reviewSummaryCounts() {
-  return state.visibleProblems.reduce((counts, problem) => {
+  return state.matchedProblems.reduce((counts, problem) => {
     const review = reviewState(problem.key);
     if (review.reading === "to-read") counts.toRead += 1;
     if (review.reading === "read") counts.read += 1;
@@ -455,10 +478,11 @@ function renderBoardSection(title, items) {
 
 function renderReviewBoard() {
   const groups = {
-    Accepted: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "accept"),
-    Keep: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "keep"),
-    Rejected: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "reject"),
-    "To Read": state.visibleProblems.filter((problem) => reviewState(problem.key).reading === "to-read"),
+    Shortlisted: state.matchedProblems.filter((problem) => state.starred.has(problem.key)),
+    Accepted: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "accept"),
+    Keep: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "keep"),
+    Rejected: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "reject"),
+    "To Read": state.matchedProblems.filter((problem) => reviewState(problem.key).reading === "to-read"),
   };
   $("#review-board").innerHTML = Object.entries(groups).map(([title, items]) => renderBoardSection(title, items)).join("");
 }
@@ -468,10 +492,13 @@ function renderList() {
   const pageSize = 12;
   const visible = matched.slice(0, state.page * pageSize);
   state.hasMore = matched.length > visible.length;
+  state.matchedProblems = matched;
   state.visibleProblems = visible;
   $("#problem-list").innerHTML = visible.map(cardTemplate).join("");
   $("#problem-list").hidden = visible.length === 0;
   $("#empty-state").hidden = visible.length !== 0;
+  $("#empty-state h2").textContent = state.filters.quick === "starred" ? "Your shortlist is empty." : "No problem statements match.";
+  $("#empty-state p").textContent = state.filters.quick === "starred" ? "Star a statement to save it on this browser, then compare your choices here." : "Remove a filter or try a broader search term.";
   $("#result-count").textContent = matched.length;
   $("#active-summary").textContent = `· showing ${visible.length}`;
   $("#load-more").hidden = !state.hasMore;
@@ -482,7 +509,7 @@ function renderList() {
 
 async function loadAndRenderList() {
   const base = scopedProblems();
-  applyFilterOptions(base);
+  applyFilterOptions(dataset.rows);
   renderList();
   await loadReviewsForProblems(state.visibleProblems.map((problem) => problem.key));
   renderList();
@@ -495,6 +522,10 @@ function breadcrumbLink(label, href) {
 function renderBreadcrumbs(items = []) {
   const node = $("#breadcrumbs");
   node.hidden = !items.length;
+  const ld = $('script[type="application/ld+json"]');
+  const schema = JSON.parse(ld.textContent);
+  if(items.length) schema['@graph'].push({'@type':'BreadcrumbList',itemListElement:items.map((item,index)=>({'@type':'ListItem',position:index+1,name:item.label,item:new URL(item.href || location.pathname,location.origin).href}))});
+  ld.textContent=JSON.stringify(schema);
   node.innerHTML = items.map((item) => item.href ? breadcrumbLink(item.label, item.href) : `<span>${escapeHtml(item.label)}</span>`).join("<span aria-hidden=\"true\">/</span>");
 }
 
@@ -508,8 +539,9 @@ function renderHome() {
     problems: dataset.rows.length,
   };
   $("#hero-stats").innerHTML = [`<div class="summary-card"><strong>${stats.hackathons}</strong><span>Hackathons</span></div>`, `<div class="summary-card"><strong>${stats.editions}</strong><span>Editions</span></div>`, `<div class="summary-card"><strong>${stats.problems}</strong><span>Problems</span></div>`].join("");
+  $("#home-editions").innerHTML = state.allHackathons.flatMap(h => [...h.editions].sort((a,b)=>b.id.localeCompare(a.id)).map(e => `<a href="${editionHref(h.id,e.id)}">${escapeHtml(e.name)} →</a>`)).join("");
   $("#home-summary").textContent = `${stats.problems} problem statements across ${stats.editions} editions.`;
-  $("#hackathon-grid").innerHTML = state.allHackathons.map((hackathon) => `<article class="catalog-card"><p class="eyebrow">${escapeHtml(hackathon.short_name || "Hackathon")}</p><h3><a href="${hackathonHref(hackathon.id)}">${escapeHtml(hackathon.name)}</a></h3><p>${escapeHtml(hackathon.description || "Browse editions and problem statements.")}</p><div class="catalog-meta"><span>${hackathon.problemCount || hackathon.stats?.problems || 0} problems</span><span>${hackathon.editions.map((edition) => edition.id).join(", ")}</span></div></article>`).join("");
+  $("#hackathon-grid").innerHTML = state.allHackathons.map((hackathon) => `<article class="catalog-card" tabindex="0" data-href="${hackathonHref(hackathon.id)}"><p class="eyebrow">${escapeHtml(hackathon.short_name || "Hackathon")}</p><h3><a href="${hackathonHref(hackathon.id)}">${escapeHtml(hackathon.name)}</a></h3><p>${escapeHtml(hackathon.description || "Browse editions and problem statements.")}</p><div class="catalog-meta"><span>${hackathon.problemCount || hackathon.stats?.problems || 0} problems</span><span>${hackathon.editions.map((edition) => edition.id).join(", ")}</span></div></article>`).join("");
 }
 
 function renderHackathonView() {
@@ -517,19 +549,20 @@ function renderHackathonView() {
   if (!hackathon) return renderHome();
   state.currentHackathon = hackathon;
   setVisible("#hackathon-view");
-  setDocumentTitle(hackathon.name);
+  setDocumentTitle(`${hackathon.name} Problem Statements`);
   renderBreadcrumbs([{ label: "HackVault", href: "/" }, { label: hackathon.name }]);
-  $("#hackathon-title").textContent = hackathon.name;
+  $("#hackathon-title").textContent = `${hackathon.name} Problem Statements`;
   $("#hackathon-description").textContent = hackathon.description || "Browse editions and problem statements.";
   $("#hackathon-meta").textContent = `${hackathon.problemCount || hackathon.stats?.problems || 0} problem statements across ${hackathon.editions.length} editions.`;
-  $("#edition-grid").innerHTML = hackathon.editions.map((edition) => `<article class="catalog-card"><p class="eyebrow">Edition</p><h3><a href="${editionHref(hackathon.id, edition.id)}">${escapeHtml(edition.name)}</a></h3><p>${escapeHtml(edition.description || edition.status || "Browse this edition.")}</p><div class="catalog-meta"><span>${edition.problemCount || edition.stats?.problems || 0} problems</span><span>${escapeHtml(String(edition.year || edition.id))}</span></div></article>`).join("");
+  $("#edition-grid").innerHTML = hackathon.editions.map((edition) => `<article class="catalog-card" tabindex="0" data-href="${editionHref(hackathon.id, edition.id)}"><p class="eyebrow">Edition</p><h3><a href="${editionHref(hackathon.id, edition.id)}">${escapeHtml(edition.name)}</a></h3><p>${escapeHtml(edition.description || edition.status || "Browse this edition.")}</p><div class="catalog-meta"><span>${edition.problemCount || edition.stats?.problems || 0} problems</span><span>${escapeHtml(String(edition.year || edition.id))}</span></div></article>`).join("");
 }
 
 function listHeading() {
   if (state.route.name === "edition") {
     const problem = scopedProblems()[0];
     const hackathon = state.allHackathons.find((item) => item.id === state.route.hackathonId);
-    const title = problem ? problem.edition.name : `${state.route.hackathonId} ${state.route.editionId}`;
+    const baseTitle = problem ? editionTitle(hackathon,problem.edition) : `${state.route.hackathonId} ${state.route.editionId} Problem Statements`;
+    const title = state.route.value ? `${state.route.value} — ${baseTitle}` : baseTitle;
     return {
       title,
       subtitle: `${scopedProblems().length} problem statements. Search across titles, organizations, departments, categories, themes, tags, and problem text.`,
@@ -537,8 +570,8 @@ function listHeading() {
     };
   }
   return {
-    title: "Search Results",
-    subtitle: "Cross-hackathon results with full context.",
+    title: state.filters.quick === "starred" ? "Your shortlist" : state.filters.search ? "Search results" : "Browse problem statements",
+    subtitle: state.filters.quick === "starred" ? "Saved on this browser. Compare your choices and open a statement to review it." : "Search the archive by PS number, title, theme or organization.",
     crumbs: [{ label: "HackVault", href: "/" }, { label: "Search" }],
   };
 }
@@ -550,11 +583,13 @@ async function renderEditionOrSearch() {
   renderBreadcrumbs(heading.crumbs);
   $("#page-title").textContent = heading.title;
   $("#page-subtitle").textContent = heading.subtitle;
+  const collectionNav = $("#browse-collections");
+  collectionNav.innerHTML = state.route.name === "edition" ? Object.keys(facets).map(kind => `<a href="${collectionPath(state.route.hackathonId,state.route.editionId,kind)}">Browse ${kind}</a>`).join("") : "";
   await loadAndRenderList();
 }
 
 function collapseSection(title, inner, open = false) {
-  return `<details class="detail-section detail-collapse"${open ? " open" : ""}><summary><h3>${escapeHtml(title)}</h3><span class="collapse-hint" aria-hidden="true"></span></summary><div class="collapse-body">${inner}</div></details>`;
+  return `<details class="detail-section detail-collapse"${open ? " open" : ""}><summary><h2>${escapeHtml(title)}</h2><span class="collapse-hint" aria-hidden="true"></span></summary><div class="collapse-body">${inner}</div></details>`;
 }
 
 function proseSection(title, body, open = false) {
@@ -590,10 +625,11 @@ function detailTemplate(problem) {
     <div class="detail-tags"><span class="detail-tag">${escapeHtml(problem.id)}</span>${problem.organization ? `<span class="detail-tag">${escapeHtml(problem.organization)}</span>` : ""}${problem.category ? `<span class="detail-tag">${escapeHtml(problem.category)}</span>` : ""}${problem.theme ? `<span class="detail-tag">${escapeHtml(problem.theme)}</span>` : ""}</div>
     <div class="detail-grid"><div>
       ${proseSection("Problem Statement", problem.description, true)}
-      ${proseSection("Expected Solution", problem.expected_solution, !problem.description)}
-      ${proseSection("Dataset", problem.dataset)}
+      ${proseSection("Expected Solution", problem.expected_solution, true)}
+      ${proseSection("Dataset", problem.dataset, true)}
+      <section class="detail-section"><h2>Explore related statements</h2><p><a href="${editionHref(problem.hackathon.id,problem.edition.id)}">Browse this edition →</a></p><nav class="related-links">${dataset.rows.filter(p=>p.key!==problem.key && p.hackathon.id===problem.hackathon.id && p.edition.id===problem.edition.id && (problem.theme ? p.theme===problem.theme : p.organization===problem.organization)).slice(0,5).map(p=>`<p><a href="${problemHref(p)}">${escapeHtml(p.id)} · ${escapeHtml(p.title)}</a></p>`).join("")}</nav></section>
     </div><aside>
-      <section class="detail-section review-panel"><h3>Your review</h3>
+      <section class="detail-section review-panel"><h2>Your review</h2>
         ${state.accessToken ? "" : '<p class="gate-status">Reading needs no account. Log in to save a review, a private note or a team vote.</p>'}
         <div class="review-group"><span>Reading</span><div class="review-actions">${Object.entries(READING_STATES).map(([value, label]) => `<button class="review-button ${review.reading === value ? "active" : ""}" type="button" data-set-reading="${value}">${label}</button>`).join("")}<button class="review-button clear" type="button" data-clear-reading>Clear</button></div></div>
         <div class="review-group"><span>Decision</span><div class="review-actions">${Object.entries(DECISION_STATES).map(([value, label]) => `<button class="review-button ${review.decision === value ? "active" : ""}" type="button" data-set-decision="${value}">${label}</button>`).join("")}<button class="review-button clear" type="button" data-clear-decision>Clear</button></div></div>
@@ -601,22 +637,22 @@ function detailTemplate(problem) {
         <form class="private-note-form" id="private-note-form"><label><span class="filter-label">Private note</span><textarea id="private-note-body" maxlength="4000" placeholder="Write your own note for this problem statement…">${escapeHtml(review.privateNote || "")}</textarea></label><div class="private-note-row"><span class="gate-status" id="private-note-status"></span><div class="private-note-actions"><button class="text-button" type="button" id="private-note-clear">Clear note</button><button class="primary-button" type="submit">Save note</button></div></div></form>
         <div class="review-group"><span>Compare</span><div class="review-actions"><button class="review-button ${state.compare.has(problem.key) ? "active" : ""}" type="button" data-compare="${escapeHtml(problem.key)}">${state.compare.has(problem.key) ? "Selected for compare" : "Add to compare"}</button></div></div>
       </section>
-      <div class="mini-stat"><span>Hackathon</span><strong>${escapeHtml(problem.hackathon.name)}</strong></div>
-      <div class="mini-stat"><span>Edition</span><strong>${escapeHtml(problem.edition.name)}</strong></div>
-      ${problem.organization ? `<div class="mini-stat"><span>Organization</span><strong>${escapeHtml(problem.organization)}</strong></div>` : ""}
+      <div class="mini-stat"><span>Hackathon</span><strong><a href="${hackathonHref(problem.hackathon.id)}">${escapeHtml(problem.hackathon.name)}</a></strong></div>
+      <div class="mini-stat"><span>Edition</span><strong><a href="${editionHref(problem.hackathon.id,problem.edition.id)}">${escapeHtml(problem.edition.name)}</a></strong></div>
+      ${problem.organization ? `<div class="mini-stat"><span>Organization</span><strong><a href="${collectionPath(problem.hackathon.id,problem.edition.id,"organizations",problem.organization)}">${escapeHtml(problem.organization)}</a></strong></div>` : ""}
       ${problem.department ? `<div class="mini-stat"><span>Department</span><strong>${escapeHtml(problem.department)}</strong></div>` : ""}
-      ${problem.category ? `<div class="mini-stat"><span>Category</span><strong>${escapeHtml(problem.category)}</strong></div>` : ""}
-      ${problem.theme ? `<div class="mini-stat"><span>Theme</span><strong>${escapeHtml(problem.theme)}</strong></div>` : ""}
-      ${problem.dataset_link ? `<div class="mini-stat"><span>Dataset</span><strong><a href="${escapeHtml(problem.dataset_link)}" rel="noreferrer noopener">Open dataset ↗</a></strong></div>` : ""}
-      ${problem.source_url ? `<div class="mini-stat"><span>Source</span><strong><a href="${escapeHtml(safeUrl(problem.source_url))}" rel="noreferrer noopener">Official source ↗</a></strong></div>` : ""}
-      <section class="detail-section" id="comments-section"><h3>Team notes</h3>${state.team ? '<div id="comment-list"><p>Loading team notes…</p></div><form class="comment-form" id="comment-form"><textarea id="comment-body" maxlength="2000" required placeholder="Add a team note…"></textarea><div class="comment-row"><span class="gate-status" id="comment-status"></span><button class="primary-button" type="submit">Add team note</button></div></form>' : '<p>Create or join a team to read and leave team notes.</p>'}</section>
+      ${problem.category ? `<div class="mini-stat"><span>Category</span><strong><a href="${collectionPath(problem.hackathon.id,problem.edition.id,"categories",problem.category)}">${escapeHtml(problem.category)}</a></strong></div>` : ""}
+      ${problem.theme ? `<div class="mini-stat"><span>Theme</span><strong><a href="${collectionPath(problem.hackathon.id,problem.edition.id,"themes",problem.theme)}">${escapeHtml(problem.theme)}</a></strong></div>` : ""}
+      ${problem.dataset_link ? `<div class="mini-stat"><span>Dataset</span><strong><a href="${escapeHtml(safeUrl(problem.dataset_link))}" rel="noreferrer noopener">Open dataset ↗</a></strong></div>` : ""}
+      ${problem.source_url ? `<div class="mini-stat"><span>Source</span><strong><a href="${escapeHtml(safeUrl(problem.source_url))}" rel="noreferrer noopener">Original source ↗</a></strong></div>` : ""}
+      <section class="detail-section" id="comments-section"><h2>Team notes</h2>${state.team ? '<div id="comment-list"><p>Loading team notes…</p></div><form class="comment-form" id="comment-form"><textarea id="comment-body" aria-label="Team note" maxlength="2000" required placeholder="Add a team note…"></textarea><div class="comment-row"><span class="gate-status" id="comment-status"></span><button class="primary-button" type="submit">Add team note</button></div></form>' : '<p>Create or join a team to read and leave team notes.</p>'}</section>
     </aside></div>`;
 }
 
 function browseSequence() {
-  if (state.browseScope === "all") return state.visibleProblems;
-  if (state.browseScope === "starred") return state.visibleProblems.filter((problem) => state.starred.has(problem.key));
-  return state.visibleProblems.filter((problem) => reviewState(problem.key)[state.browseScope === "to-read" ? "reading" : "decision"] === state.browseScope);
+  if (state.browseScope === "all") return scopedProblems().filter(matchesFilters);
+  if (state.browseScope === "starred") return scopedProblems().filter(matchesFilters).filter((problem) => state.starred.has(problem.key));
+  return scopedProblems().filter(matchesFilters).filter((problem) => reviewState(problem.key)[state.browseScope === "to-read" ? "reading" : "decision"] === state.browseScope);
 }
 
 function syncDetailNav() {
@@ -631,7 +667,7 @@ function syncDetailNav() {
 function renderCurrentProblem() {
   if (!state.currentProblem) return;
   setVisible("#detail-view");
-  setDocumentTitle(`${state.currentProblem.id} - ${state.currentProblem.title}`);
+  setDocumentTitle(`${state.currentProblem.id}: ${state.currentProblem.title}`);
   renderBreadcrumbs([
     { label: "HackVault", href: "/" },
     { label: state.currentProblem.hackathon.name, href: hackathonHref(state.currentProblem.hackathon.id) },
@@ -640,6 +676,7 @@ function renderCurrentProblem() {
   ]);
   $("#detail-number").textContent = state.currentProblem.id;
   $("#detail-star").dataset.star = state.currentProblem.key;
+  $("#detail-star").setAttribute("aria-pressed",state.starred.has(state.currentProblem.key));
   $("#detail-star").classList.toggle("starred", state.starred.has(state.currentProblem.key));
   $("#detail-body").innerHTML = detailTemplate(state.currentProblem);
   $("#private-note-form")?.addEventListener("submit", submitPrivateNote);
@@ -652,9 +689,15 @@ function renderCurrentProblem() {
 }
 
 function navigate(path, { replace = false } = {}) {
+  closeMobileFilters();
+  const target = new URL(path,location.origin);
+  if(target.pathname === "/browse" && state.route.name !== "search") { state.filters.hackathon=""; state.filters.edition=""; }
+  if(state.route.kind && !target.pathname.includes('/problems/')) state.filters[facets[state.route.kind]] = "";
+  if(target.searchParams.has('q')) state.filters.search = target.searchParams.get('q');
+  if (/\/(themes|organizations|categories)$/.test(new URL(path,location.origin).pathname)) { location.href=path; return; }
   if (replace) history.replaceState({}, "", path);
   else history.pushState({}, "", path);
-  route();
+  route().catch(error => toast(error.message,"error"));
 }
 
 function openProblemByKey(key) {
@@ -787,10 +830,11 @@ async function setDecision(problemKey, decision) {
 
 function exportBoard() {
   const groups = {
-    Accepted: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "accept"),
-    Keep: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "keep"),
-    Rejected: state.visibleProblems.filter((problem) => reviewState(problem.key).decision === "reject"),
-    "To Read": state.visibleProblems.filter((problem) => reviewState(problem.key).reading === "to-read"),
+    Shortlisted: state.matchedProblems.filter((problem) => state.starred.has(problem.key)),
+    Accepted: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "accept"),
+    Keep: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "keep"),
+    Rejected: state.matchedProblems.filter((problem) => reviewState(problem.key).decision === "reject"),
+    "To Read": state.matchedProblems.filter((problem) => reviewState(problem.key).reading === "to-read"),
   };
   const total = Object.values(groups).reduce((sum, items) => sum + items.length, 0);
   if (!total) return toast("Nothing to export yet. Mark some problem statements first.", "error");
@@ -802,22 +846,32 @@ function exportBoard() {
   const link = document.createElement("a");
   link.href = url;
   link.download = "hackvault-review-board.md";
+  document.body.append(link);
   link.click();
+  link.remove();
   URL.revokeObjectURL(url);
 }
 
 function closeMobileFilters() {
+  const wasOpen = $("#filters").classList.contains("open");
   $("#filters").classList.remove("open");
+  $("#filters").inert = true;
+  document.body.classList.remove("filters-open");
+  $("#navbar").inert = false;
+  $("#results-panel")?.removeAttribute("inert");
+  if(wasOpen) $("#filter-button").focus();
   $("#filter-backdrop").hidden = true;
   $("#filter-button").setAttribute("aria-expanded", "false");
 }
 
 function clearFilters({ keepScope = false } = {}) {
-  const scoped = keepScope ? { hackathon: state.filters.hackathon, edition: state.filters.edition } : { hackathon: "", edition: "" };
+  const scoped = keepScope ? { hackathon: state.filters.hackathon, edition: state.filters.edition, ...(state.route.kind ? {[facets[state.route.kind]]: state.route.value} : {}) } : { hackathon: "", edition: "" };
   Object.assign(state.filters, { search: "", organization: "", department: "", category: "", theme: "", tag: "", quick: "", individualReview: "", teamVote: "", ...scoped });
   state.page = 1;
   closeMobileFilters();
   if (state.route.name === "home" || state.route.name === "hackathon") return route();
+  $("#search").value = "";
+  syncUrl();
   renderEditionOrSearch();
 }
 
@@ -1015,10 +1069,8 @@ async function route() {
     if (state.route.name === "edition") {
       state.filters.hackathon = state.route.hackathonId;
       state.filters.edition = state.route.editionId;
-    } else {
-      state.filters.hackathon = "";
-      state.filters.edition = "";
     }
+    if(state.route.kind) state.filters[facets[state.route.kind]] = state.route.value;
     await renderEditionOrSearch();
     syncUrl();
     return;
@@ -1037,10 +1089,14 @@ async function route() {
 }
 
 function bindEvents() {
+  $("#ask-ai").addEventListener("click", async () => {
+    if(!state.currentProblem) return;
+    try { await navigator.clipboard.writeText(`Help me evaluate this hackathon problem statement. Identify requirements, data dependencies, risks and a feasible prototype. Distinguish source requirements from your suggestions.\n\n${problemToMarkdown(state.currentProblem)}`); toast("Prompt copied. Paste it into your preferred AI assistant."); } catch { toast("Could not access the clipboard.", "error"); }
+  });
   $("#theme-toggle").addEventListener("click", () => {
     const dark = document.documentElement.classList.toggle("dark");
     localStorage.setItem(STORAGE.theme, dark ? "dark" : "light");
-    document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#10161f" : "#194fd1");
+    document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#151922" : "#f7f8fa");
   });
   $("#search").addEventListener("input", (event) => {
     state.filters.search = event.target.value;
@@ -1048,12 +1104,26 @@ function bindEvents() {
     searchTimer = setTimeout(() => {
       state.page = 1;
       if (state.route.name === "home") navigate(state.filters.search ? "/hackathons" : "/", { replace: true });
-      else if (state.route.name === "hackathon") navigate(hackathonHref(state.route.hackathonId), { replace: true });
+      else if (["hackathon","detail"].includes(state.route.name)) navigate("/browse", { replace: true });
       else route();
     }, 250);
   });
   [["#hackathon-filter", "hackathon"], ["#edition-filter", "edition"], ["#organization-filter", "organization"], ["#department-filter", "department"], ["#category-filter", "category"], ["#theme-filter", "theme"], ["#tag-filter", "tag"], ["#individual-review", "individualReview"], ["#team-vote", "teamVote"]].forEach(([selector, key]) => {
     $(selector).addEventListener("change", (event) => {
+      if(state.route.kind && key === facets[state.route.kind]) {
+        if(event.target.value) return navigate(collectionPath(state.route.hackathonId,state.route.editionId,state.route.kind,event.target.value));
+        return navigate(editionHref(state.route.hackathonId,state.route.editionId));
+      }
+      if(key === "hackathon" && state.route.name === "edition") {
+        state.filters.edition = "";
+        state.filters.hackathon = event.target.value;
+        return navigate("/browse");
+      }
+      if(key === "edition" && state.route.name === "edition") {
+        if(event.target.value) return navigate(editionHref(state.route.hackathonId,event.target.value));
+        state.filters.edition = "";
+        return navigate("/browse");
+      }
       state.filters[key] = event.target.value;
       state.page = 1;
       renderEditionOrSearch();
@@ -1066,9 +1136,13 @@ function bindEvents() {
     state.page = 1;
     renderEditionOrSearch();
   });
-  $("#filter-button").addEventListener("click", () => {
+  $("#filter-button").addEventListener("click", async () => {
+    if (!["edition","search"].includes(state.route.name)) { history.pushState({},"","/browse"); await route(); }
     if ($("#filters").classList.contains("open")) return closeMobileFilters();
     $("#filters").classList.add("open");
+    $("#filters").inert = false;
+    document.body.classList.add("filters-open");
+    $("#filter-close").focus();
     $("#filter-backdrop").hidden = false;
     $("#filter-button").setAttribute("aria-expanded", "true");
   });
@@ -1082,10 +1156,12 @@ function bindEvents() {
     if (star) return toggleStar(star.dataset.star);
     const compare = event.target.closest("[data-compare]");
     if (compare) return toggleCompare(compare.dataset.compare);
+    if(event.target.closest("a")) return;
     const card = event.target.closest("[data-open]");
     if (card) openProblemByKey(card.dataset.open);
   });
   $("#problem-list").addEventListener("keydown", (event) => {
+    if(event.target.closest("a,button")) return;
     const card = event.target.closest("[data-open]");
     if (card && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProblemByKey(card.dataset.open); }
   });
@@ -1122,14 +1198,14 @@ function bindEvents() {
     const key = state.currentProblem.key;
     try {
       const reading = event.target.closest("[data-set-reading]");
-      if (reading) return saveReview(key, { ...reviewState(key), reading: reading.dataset.setReading }).then(() => { renderCurrentProblem(); renderList(); });
+      if (reading) return await saveReview(key, { ...reviewState(key), reading: reading.dataset.setReading }).then(() => { renderCurrentProblem(); renderList(); });
       const decision = event.target.closest("[data-set-decision]");
-      if (decision) return saveReview(key, { ...reviewState(key), decision: decision.dataset.setDecision }).then(() => { renderCurrentProblem(); renderList(); });
+      if (decision) return await saveReview(key, { ...reviewState(key), decision: decision.dataset.setDecision }).then(() => { renderCurrentProblem(); renderList(); });
       const vote = event.target.closest("[data-set-vote]");
-      if (vote) return saveReview(key, { ...reviewState(key), vote: vote.dataset.setVote }).then(() => { renderCurrentProblem(); renderList(); });
-      if (event.target.closest("[data-clear-reading]")) return saveReview(key, { ...reviewState(key), reading: "" }).then(() => { renderCurrentProblem(); renderList(); });
-      if (event.target.closest("[data-clear-decision]")) return saveReview(key, { ...reviewState(key), decision: "" }).then(() => { renderCurrentProblem(); renderList(); });
-      if (event.target.closest("[data-clear-vote]")) return saveReview(key, { ...reviewState(key), vote: "" }).then(() => { renderCurrentProblem(); renderList(); });
+      if (vote) return await saveReview(key, { ...reviewState(key), vote: vote.dataset.setVote }).then(() => { renderCurrentProblem(); renderList(); });
+      if (event.target.closest("[data-clear-reading]")) return await saveReview(key, { ...reviewState(key), reading: "" }).then(() => { renderCurrentProblem(); renderList(); });
+      if (event.target.closest("[data-clear-decision]")) return await saveReview(key, { ...reviewState(key), decision: "" }).then(() => { renderCurrentProblem(); renderList(); });
+      if (event.target.closest("[data-clear-vote]")) return await saveReview(key, { ...reviewState(key), vote: "" }).then(() => { renderCurrentProblem(); renderList(); });
       const compare = event.target.closest("[data-compare]");
       if (compare) toggleCompare(compare.dataset.compare);
     } catch (error) {
@@ -1140,10 +1216,10 @@ function bindEvents() {
     state.filters.quick = "starred";
     state.page = 1;
     if (state.route.name === "edition" || state.route.name === "search") return renderEditionOrSearch();
-    navigate("/hackathons", { replace: true });
+    navigate("/browse", { replace: true });
   });
   $("#nav-board").addEventListener("click", async () => {
-    if (state.route.name !== "edition" && state.route.name !== "search") navigate("/hackathons", { replace: true });
+    if (state.route.name !== "edition" && state.route.name !== "search") navigate("/browse", { replace: true });
     setTimeout(() => $("#review-board").scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   });
   $("#open-compare").addEventListener("click", openCompareDialog);
@@ -1155,6 +1231,21 @@ function bindEvents() {
     const compare = event.target.closest("[data-compare]");
     if (compare) { toggleCompare(compare.dataset.compare); openCompareDialog().catch((error) => toast(error.message, "error")); }
   });
+  for (const selector of ["#hackathon-grid", "#edition-grid"]) {
+    $(selector).addEventListener("click", (event) => {
+      if (event.target.closest("a,button")) return;
+      const card = event.target.closest("[data-href]");
+      if (card) navigate(card.dataset.href);
+    });
+    $(selector).addEventListener("keydown", (event) => {
+      if (event.target.closest("a,button")) return;
+      const card = event.target.closest("[data-href]");
+      if (card && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        navigate(card.dataset.href);
+      }
+    });
+  }
   $("#join-group-button").addEventListener("click", () => {
     if (!state.accessToken) return openAuthDialog("Log in to create or join a team.");
     openTeamDialog(state.team ? "join" : "create");
@@ -1172,12 +1263,21 @@ function bindEvents() {
     const link = event.target.closest('a[href^="/"]');
     if (!link || link.target || event.metaKey || event.ctrlKey || event.shiftKey || event.defaultPrevented) return;
     const url = new URL(link.href, location.origin);
-    if (url.origin !== location.origin) return;
+    if (url.origin !== location.origin || url.hash || /\/(themes|organizations|categories)$/.test(url.pathname)) return;
+    if(!/^\/(?:hackathons(?:\/|$)|browse(?:$|\?)|$)/.test(url.pathname)) return;
     event.preventDefault();
     navigate(`${url.pathname}${url.search}`);
   });
-  window.addEventListener("popstate", route);
+  window.addEventListener("popstate", () => { readUrlState(); route(); });
   document.addEventListener("keydown", (event) => {
+    if($("#filters").classList.contains("open") && event.key === "Tab") {
+      const nodes = [...$("#filters").querySelectorAll("button,select,input")].filter(n=>n.getClientRects().length && !n.disabled);
+      const first=nodes[0], last=nodes.at(-1);
+      if(event.shiftKey && document.activeElement===first) {event.preventDefault();last.focus();}
+      else if(!event.shiftKey && document.activeElement===last) {event.preventDefault();first.focus();}
+      return;
+    }
+    if(document.querySelector("dialog[open]")) return;
     if (event.key === "Escape" && $("#filters").classList.contains("open")) closeMobileFilters();
     if (event.key === "/" && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { event.preventDefault(); $("#search").focus(); }
     if (state.currentProblem && !event.target.matches("input, textarea, select")) {
@@ -1206,15 +1306,17 @@ async function boot() {
     try {
       await refreshAccessToken();
       renderTeamBar();
-      await route();
+      if(state.accessToken) await route();
     } catch {}
   }
   $("#boot-screen").hidden = true;
 }
 
 boot().catch((error) => {
+  document.documentElement.classList.remove("js-loading");
   $("#boot-screen").hidden = true;
   $("#navbar").hidden = false;
-  $("#spa-root").hidden = false;
-  toast(error.message, "error");
+  if($("#ssr-content").hidden) $("#ssr-content").innerHTML = '<div class="network-state"><h1>Could not load the archive</h1><p>Check your connection and reload to try again.</p><a href="/">Reload HackVault</a></div>';
+  $("#ssr-content").hidden = false;
+  toast("Interactive tools could not load. The archived page is still available. Reload to retry.", "error");
 });

@@ -3,28 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HackVault</title>
-    <meta name="description" content="Open-source problem statement explorer for hackathons." />
+    <title>Hackathon Problem Statements — Search &amp; Shortlist | HackVault</title>
+    <meta name="description" content="Search hackathon problem statements by PS number, theme and organization. Compare briefs and build your shortlist." />
     <link rel="canonical" href="/" />
-    <meta name="theme-color" content="#194fd1" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="index, follow" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="HackVault" />
-    <meta property="og:locale" content="en" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="HackVault" />
-    <meta property="og:description" content="Open-source problem statement explorer for hackathons." />
-    <meta property="og:image" content="/assets/screenshots/hero.png" />
-    <meta property="og:image:width" content="1440" />
-    <meta property="og:image:height" content="900" />
-    <meta property="og:image:alt" content="HackVault problem explorer" />
+    <meta property="og:description" content="Search hackathon problem statements by PS number, theme and organization. Compare briefs and build your shortlist." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="HackVault — Hackathon Problem Statement Archive. Search, compare, shortlist." />
     <meta property="og:url" content="/" />
+    <meta name="twitter:image:alt" content="HackVault — Hackathon Problem Statement Archive. Search, compare, shortlist." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="HackVault" />
-    <meta name="twitter:description" content="Open-source problem statement explorer for hackathons." />
-    <meta name="twitter:image" content="/assets/screenshots/hero.png" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/assets/logo.jpg" type="image/jpeg" sizes="180x180" />
-    <link rel="apple-touch-icon" href="/assets/logo.jpg" />
+    <meta name="twitter:description" content="Search hackathon problem statements by PS number, theme and organization. Compare briefs and build your shortlist." />
+    <meta name="twitter:image" content="/og-image.png" />
+    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <script src="/theme-init.js"></script>
     <link rel="stylesheet" href="/styles.css" />
     <script type="application/ld+json">
       {
@@ -32,17 +37,17 @@
         "@type": "WebSite",
         "name": "HackVault",
         "url": "/",
-        "description": "Open-source problem statement explorer for hackathons."
+        "description": "Search hackathon problem statements by PS number, theme and organization. Compare briefs and build your shortlist."
       }
     </script>
-    <script src="/theme-init.js"></script>
-    <script src="/app.js" defer></script>
+    <script src="/app.js" type="module"></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <section class="access-gate access-gate-loading" id="boot-screen" aria-labelledby="boot-title">
       <div class="gate-panel">
-        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
-        <p class="eyebrow">HackVault Framework</p>
+        <img class="brand-mark" src="/icons/favicon.svg" alt="" width="38" height="38" />
+        <p class="eyebrow">HackVault</p>
         <h2 id="boot-title">Hackathon problem<br />statements, organized.</h2>
         <p>Loading the catalog and the review workspace.</p>
       </div>
@@ -51,7 +56,7 @@
     <dialog class="auth-dialog" id="access-gate" aria-labelledby="access-title">
       <div class="auth-card">
         <button class="text-button auth-back" id="auth-back" type="button">&larr; Back to the catalog</button>
-        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
+        <img class="brand-mark" src="/icons/favicon.svg" alt="" width="38" height="38" />
         <p class="eyebrow">HackVault</p>
         <h2 id="access-title">Keep track of<br />your shortlist.</h2>
         <p class="auth-lede">Browsing the public catalog needs no account. Sign in only for private notes, team votes, shared comments, and saved review state.</p>
@@ -76,13 +81,13 @@
 
     <header class="navbar" id="navbar" hidden>
       <a class="brand" href="/" aria-label="HackVault home">
-        <img class="brand-mark" src="/assets/logo.jpg" alt="HackVault logo" />
-        <span><strong>HackVault</strong><small>Framework</small></span>
+        <img class="brand-mark" src="/icons/favicon.svg" alt="" width="38" height="38" />
+        <span><strong>HackVault</strong><small>Problem statement archive</small></span>
       </a>
 
       <nav class="nav-links" aria-label="Primary">
         <a href="/hackathons" data-nav-link="hackathons">Hackathons</a>
-        <a href="/hackathons" data-nav-link="explore">Explore</a>
+        <a href="/browse" data-nav-link="explore">Browse</a>
         <button class="text-button nav-inline" id="nav-shortlist" type="button">Shortlist</button>
         <button class="text-button nav-inline" id="nav-board" type="button">Review Board</button>
       </nav>
@@ -90,7 +95,7 @@
       <div class="nav-search" role="search">
         <label class="search-input-wrap">
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
-          <input id="search" type="search" aria-label="Search problem statements" placeholder="Search hackathons, editions, titles, organizations, themes, tags..." autocomplete="off" />
+          <input id="search" type="search" aria-label="Search problem statements" placeholder="Search by PS number, title, theme…" autocomplete="off" />
           <kbd>/</kbd>
         </label>
         <button class="filter-button" id="filter-button" type="button" aria-controls="filters" aria-expanded="false">
@@ -109,7 +114,7 @@
       </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <section id="ssr-content" hidden></section>
 
       <div id="spa-root" hidden>
@@ -118,9 +123,10 @@
         <section class="home-view" id="home-view" hidden>
           <section class="hero-panel">
             <p class="eyebrow">HackVault</p>
-            <h1>Browse and shortlist problem statements from hackathons</h1>
-            <p class="hero-copy">Markdown remains the source of truth. The browser and review tools sit on top.</p>
+            <h1>Hackathon problem statements.</h1>
+            <p class="hero-copy">Search, compare and shortlist a problem worth building. Explore hackathons, previous editions, themes and organizations.</p>
             <div class="hero-stats" id="hero-stats"></div>
+            <nav class="hero-links" id="home-editions" aria-label="Browse editions"></nav>
           </section>
 
           <section class="home-section" aria-labelledby="home-hackathons-title">
@@ -150,10 +156,11 @@
           <section class="page-head" aria-labelledby="page-title">
             <h1 id="page-title">Catalog explorer</h1>
             <p id="page-subtitle"></p>
+            <nav class="collection-links" id="browse-collections" aria-label="Browse this edition"></nav>
           </section>
 
           <section class="workspace" aria-label="Problem statement explorer">
-            <aside class="filters" id="filters">
+            <aside class="filters" id="filters" role="dialog" aria-modal="true" aria-label="Filter problem statements" inert>
               <div class="filter-heading">
                 <h2>Filters</h2>
                 <div class="filter-heading-actions">
@@ -277,7 +284,8 @@
               </label>
             </div>
             <div class="detail-tools">
-              <button class="text-button" id="copy-md" type="button">Copy MD</button>
+              <button class="text-button" id="ask-ai" type="button" title="Copy an evaluation prompt for your AI assistant">Ask AI</button>
+              <button class="text-button" id="copy-md" type="button">Copy Markdown</button>
               <button class="icon-button" id="detail-star" type="button" aria-label="Star this problem statement" title="Star problem statement">
                 <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></svg>
               </button>
@@ -333,6 +341,7 @@
       </div>
     </dialog>
 
+    <footer class="site-footer"><p>HackVault is an independent archive, not affiliated with Smart India Hackathon or its organizers. Check the linked sources for current requirements.</p><nav aria-label="Footer"><a href="/hackathons">Hackathons</a><a href="https://github.com/Vigneshrdy/sih-ps-archive/blob/main/ATTRIBUTION.md">Sources &amp; attribution</a></nav></footer>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <div class="mobile-filter-backdrop" id="filter-backdrop" hidden></div>
   </body>

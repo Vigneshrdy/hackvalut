@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "node --env-file=.env scripts/dev.js",
     "start": "node --env-file=.env scripts/dev.js",
-    "check": "node scripts/test-statements.js && node scripts/test-team.js && node scripts/checks/guards.mjs",
-    "check:e2e": "node --env-file=.env scripts/checks/e2e-flow.mjs"
+    "check": "node scripts/test-statements.js && node scripts/test-team.js && node scripts/checks/guards.mjs && node scripts/checks/seo.mjs",
+    "check:audit": "node scripts/checks/audit.mjs",
+    "check:browser": "node scripts/checks/browser.mjs",
+    "check:e2e": "node --env-file=.env scripts/checks/e2e-flow.mjs",
+    "check:seo": "node scripts/checks/seo.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -15,5 +18,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "playwright": "^1.63.0"
   }
 }

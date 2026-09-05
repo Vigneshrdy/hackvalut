@@ -11,8 +11,11 @@ const port = Number(process.env.PORT || 3000);
 const origin = `http://localhost:${port}`;
 process.env.APP_ORIGIN = [process.env.APP_ORIGIN, origin].filter(Boolean).join(",");
 
-const STATIC = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".txt": "text/plain", ".json": "application/json", ".svg": "image/svg+xml" };
+const STATIC = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".txt": "text/plain", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".webmanifest": "application/manifest+json" };
 const ROUTES = [
+  [/^\/robots\.txt$/, "../api/robots.js"],
+  [/^\/browse$/, "../api/statement.js"],
+  [/^\/hackathons\/([^/]+)\/([^/]+)\/(themes|organizations|categories)(?:\/([^/]+))?$/, "../api/statement.js", ["hackathon", "edition", "kind", "value"]],
   [/^\/api\/auth$/, "../api/auth.js"],
   [/^\/api\/team$/, "../api/team.js"],
   [/^\/api\/reviews$/, "../api/reviews.js"],
@@ -76,6 +79,8 @@ http.createServer(async (request, response) => {
     response.setHeader("Content-Type", STATIC[path.extname(asset)] || "application/octet-stream");
     response.end(file);
   } catch {
-    response.status(404).end("Not found");
+    request.query = {notFound: "1"};
+    const {default: handler} = await import("../api/statement.js");
+    await handler(request,response);
   }
 }).listen(port, () => console.log(`dev server on ${origin}`));

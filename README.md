@@ -1,6 +1,6 @@
-# HackVault Framework
+# HackVault
 
-HackVault Framework is a lightweight, Markdown-backed system for browsing, filtering, reviewing, and shortlisting hackathon problem statements.
+HackVault is a lightweight, Markdown-backed archive for browsing, filtering, reviewing, and shortlisting hackathon problem statements.
 
 Smart India Hackathon is one dataset running on the framework. The architecture is generic: add another hackathon under `data/` and the site discovers it automatically.
 
@@ -72,7 +72,7 @@ data/
         WEB-7.md
 ```
 
-See `docs/DATA_FORMAT.md` for the full schema.
+See `docs/DATA_FORMAT.md` for the full schema. See `docs/DESIGN-SEO.md` for the current design, URL, favicon, and SEO decisions.
 
 ## Add A Hackathon
 
@@ -164,9 +164,12 @@ Deploy steps:
 
 ```bash
 npm run check
+npm run check:seo
+npm run check:browser
+npm run check:audit
 ```
 
-This validates the catalog layout, uniqueness rules, parser behavior, deployment wiring, and the generic identifier model.
+This validates the catalog layout, uniqueness rules, parser behavior, deployment wiring, SEO output, browser workflows, accessibility, and responsive behavior.
 
 ## Contribution Workflow
 

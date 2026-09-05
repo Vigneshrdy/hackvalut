@@ -1,23 +1,24 @@
 {
-  "name": "HackVault",
+  "name": "HackVault \u2014 Hackathon Problem Statement Archive",
   "short_name": "HackVault",
-  "description": "Open-source problem statement explorer for hackathons.",
+  "description": "Search, compare and shortlist hackathon problem statements.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f7f7",
-  "theme_color": "#194fd1",
-  "lang": "en",
+  "theme_color": "#3659c9",
+  "background_color": "#f7f8fa",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
+      "src": "/icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/logo.jpg",
-      "type": "image/jpeg",
-      "sizes": "180x180"
+      "src": "/icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
